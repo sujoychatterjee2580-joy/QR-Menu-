@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart QR Order & Kitchen Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- QRCode.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- MQTT.js CDN (দুটি ডিভাইসে লাইভ কানেকশন ও সিঙ্কের জন্য) -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+
+  <!-- টপ নেভিগেশন ও মোড সিলেক্টর -->
+  <header class="bg-white border-b sticky top-0 z-50 shadow-sm">
+    <div class="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span id="connDot" class="w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse"></span>
+        <h1 class="font-black text-lg text-slate-900 tracking-tight">FoodDesk</h1>
+        <span id="connStatus" class="text-[10px] text-slate-400 font-medium">কানেক্টিং...</span>
+      </div>
+      <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+        <button id="btnCustomer" onclick="switchView('customer')" class="px-3 py-1.5 rounded-lg bg-white shadow-sm text-emerald-700 transition">
+          কাস্টমার
+        </button>
+        <button id="btnOwner" onclick="switchView('owner')" class="px-3 py-1.5 rounded-lg text-slate-500 transition">
+          ওনার ড্যাশবোর্ড
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= কাস্টমার ইন্টারফেস ================= -->
+  <section id="viewCustomer" class="max-w-md mx-auto px-4 pt-4">
+    <!-- ব্যানার -->
+    <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-5 rounded-2xl shadow-sm mb-4">
+      <div class="flex justify-between items-start">
+        <div>
+          <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">ডাইন-ইন মেনু</span>
+          <h2 class="text-xl font-bold mt-1">ক্যাফে চিলআউট</h2>
+        </div>
+        <div class="text-right">
+          <span class="text-xs text-white/80">টেবিল নম্বর</span>
+          <p id="tableBadge" class="text-2xl font-black">#1</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- মেনু আইটেম লিস্ট -->
+    <h3 class="font-bold text-sm text-slate-500 mb-2 px-1">আজকের মেনু</h3>
+    <div id="menuContainer" class="space-y-2.5 mb-24"></div>
+
+    <!-- কাস্টমার কার্ট বার -->
+    <div id="cartBar" class="fixed bottom-4 left-4 right-4 max-w-md mx-auto hidden">
+      <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-xl flex justify-between items-center border border-white/10">
+        <div>
+          <p id="cartCount" class="text-xs text-slate-300">০টি আইটেম সিলেক্টেড</p>
+          <p id="cartTotal" class="font-black text-base text-emerald-400">৳0</p>
+        </div>
+        <button onclick="placeOrder()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-3 rounded-xl transition">
+          অর্ডার পাঠান ➔
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ওনার ইন্টারফেস ================= -->
+  <section id="viewOwner" class="max-w-2xl mx-auto px-4 pt-4 hidden">
+    <!-- QR কোড জেনারেটর কার্ড -->
+    <div class="bg-white p-5 rounded-2xl border shadow-sm mb-5">
+      <h3 class="font-bold text-sm text-slate-900 mb-1">টেবিলের QR কোড প্রিন্ট/স্ক্যান</h3>
+      <p class="text-xs text-slate-500 mb-3">টেবিল নম্বর লিখুন এবং ফোনের ক্যামেরা দিয়ে QR স্ক্যান করে টেস্ট করুন।</p>
+      <div class="flex flex-wrap gap-5 items-center">
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-bold text-slate-600">টেবিল নং:</label>
+          <input type="number" id="qrTableInput" value="1" min="1" max="50" class="w-16 border rounded-lg px-2 py-1 text-center font-bold text-sm" onchange="generateQR()">
+        </div>
+        <div id="qrcode" class="p-2 bg-white rounded-lg border"></div>
+      </div>
+    </div>
+
+    <!-- লাইভ অর্ডার ফিড -->
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold text-sm text-slate-900">লাইভ কিচেন অর্ডারসমূহ</h3>
+      <button onclick="clearOrders()" class="text-xs text-red-500 font-semibold hover:underline">ক্লিয়ার অল</button>
+    </div>
+    <div id="ordersContainer" class="space-y-3"></div>
+  </section>
+
+  <script>
+    // ডামি মেনু
+    const menuItems = [
+      { id: 1, name: "চিকেন ক্রিস্পি বার্গার", price: 180, desc: "চিজি মেয়ো ও ক্রাঞ্চি চিকেন" },
+      { id: 2, name: "স্মোকি বিফ বার্গার", price: 240, desc: "বিবিসিউ সস ও ফ্রেশ অনিয়ন" },
+      { id: 3, name: "কোল্ড কফি", price: 120, desc: "আইসক্রিম টপিং ও চকলেট" },
+      { id: 4, name: "পেরি পেরি ফ্রাইস", price: 90, desc: "স্পাইসি সিজনিং ফ্রাইস" }
+    ];
+
+    let cart = {};
+    let currentTable = "1";
+    let orders = JSON.parse(localStorage.getItem("active_orders") || "[]");
+
+    // পাবলিক ফ্রি ক্লাউড ব্রোকার (WebSocket Over SSL)
+    const MQTT_BROKER = "wss://broker.hivemq.com:8884/mqtt";
+    // ইউনিক টপিক চ্যানেল (যাতে আপনার অর্ডার অন্য কারো সাথে মিশ্রিত না হয়)
+    const TOPIC_ORDERS = "my_qr_restaurant_channel_orders_v1";
+    const TOPIC_STATUS = "my_qr_restaurant_channel_status_v1";
+
+    const client = mqtt.connect(MQTT_BROKER);
+
+    client.on("connect", () => {
+      document.getElementById("connDot").className = "w-2.5 h-2.5 bg-emerald-500 rounded-full";
+      document.getElementById("connStatus").innerText = "অনলাইন";
+      // অর্ডার ও স্ট্যাটাস আপডেট সাবস্ক্রাইব করা
+      client.subscribe([TOPIC_ORDERS, TOPIC_STATUS]);
+    });
+
+    client.on("error", () => {
+      document.getElementById("connDot").className = "w-2.5 h-2.5 bg-red-500 rounded-full";
+      document.getElementById("connStatus").innerText = "ডিসকানেক্টেড";
+    });
+
+    // ক্লাউড থেকে অন্য ডিভাইসের পাঠানো মেসেজ আসলে
+    client.on("message", (topic, payload) => {
+      try {
+        const data = JSON.parse(payload.toString());
+        if (topic === TOPIC_ORDERS) {
+          // নতুন অর্ডার ড্রপ করেছে
+          orders.unshift(data);
+          localStorage.setItem("active_orders", JSON.stringify(orders));
+          renderOrders();
+          // নোটিফিকেশন সাউন্ড (ঐচ্ছিক ব্রাউজার বিপ)
+          playBeep();
+        } else if (topic === TOPIC_STATUS) {
+          // ওনার স্ট্যাটাস আপডেট করেছে
+          orders = orders.map(o => o.id === data.id ? { ...o, status: data.status } : o);
+          localStorage.setItem("active_orders", JSON.stringify(orders));
+          renderOrders();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // সাউন্ড বিপ অ্যালার্ট
+    function playBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+      } catch(e) {}
+    }
+
+    // পেজ লোড
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tableParam = urlParams.get('table');
+      if (tableParam) {
+        currentTable = tableParam;
+        document.getElementById('tableBadge').innerText = "#" + tableParam;
+        document.getElementById('qrTableInput').value = tableParam;
+      }
+      renderMenu();
+      renderOrders();
+      generateQR();
+    };
+
+    function renderMenu() {
+      const container = document.getElementById("menuContainer");
+      container.innerHTML = menuItems.map(item => `
+        <div class="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
+          <div>
+            <h4 class="font-bold text-sm text-slate-800">${item.name}</h4>
+            <p class="text-xs text-slate-400 mt-0.5">${item.desc}</p>
+            <p class="text-xs font-black text-emerald-600 mt-1">৳${item.price}</p>
+          </div>
+          <button onclick="addToCart(${item.id})" class="bg-emerald-50 active:scale-95 text-emerald-700 font-bold text-xs px-3.5 py-2 rounded-lg border border-emerald-200">
+            + যোগ করুন ${cart[item.id] ? `<span class="bg-emerald-600 text-white rounded-full px-1.5 ml-1">${cart[item.id]}</span>` : ''}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addToCart(id) {
+      cart[id] = (cart[id] || 0) + 1;
+      renderMenu();
+      updateCartBar();
+    }
+
+    function updateCartBar() {
+      const cartBar = document.getElementById("cartBar");
+      const totalCount = Object.values(cart).reduce((a, b) => a + b, 0);
+      if (totalCount > 0) {
+        let totalBill = 0;
+        for (let id in cart) {
+          const item = menuItems.find(m => m.id == id);
+          totalBill += item.price * cart[id];
+        }
+        document.getElementById("cartCount").innerText = `${totalCount}টি আইটেম সিলেক্টেড`;
+        document.getElementById("cartTotal").innerText = `৳${totalBill}`;
+        cartBar.classList.remove("hidden");
+      } else {
+        cartBar.classList.add("hidden");
+      }
+    }
+
+    // কাস্টমার অর্ডার পাঠাবে (অন্য ডিভাইসের ওনারের স্ক্রিনে চলে যাবে)
+    function placeOrder() {
+      const orderItems = [];
+      let totalBill = 0;
+      for (let id in cart) {
+        const item = menuItems.find(m => m.id == id);
+        orderItems.push({ name: item.name, qty: cart[id], price: item.price });
+        totalBill += item.price * cart[id];
+      }
+
+      const newOrder = {
+        id: Math.floor(100 + Math.random() * 900),
+        table: currentTable,
+        items: orderItems,
+        total: totalBill,
+        status: "Preparing",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      // ক্লাউড ব্রোকারে পাবলিশ (সব ডিভাইসে সাথে সাথে পৌঁছাবে)
+      client.publish(TOPIC_ORDERS, JSON.stringify(newOrder));
+
+      cart = {};
+      renderMenu();
+      updateCartBar();
+      alert("অর্ডার পাঠানো হয়েছে! কিচেন ড্যাশবোর্ডে এটি দেখা যাবে।");
+    }
+
+    // ওনার ড্যাশবোর্ডে অর্ডার রেন্ডার
+    function renderOrders() {
+      const container = document.getElementById("ordersContainer");
+      if (orders.length === 0) {
+        container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-xs text-slate-400">কোনো অর্ডার এখনো আসেনি।</div>`;
+        return;
+      }
+      container.innerHTML = orders.map(order => `
+        <div class="bg-white p-4 rounded-xl border shadow-sm flex justify-between items-start">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-black text-sm">#${order.id}</span>
+              <span class="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded">টেবিল ${order.table}</span>
+              <span class="text-[11px] text-slate-400">${order.time}</span>
+            </div>
+            <div class="mt-2 text-xs text-slate-600 space-y-0.5">
+              ${order.items.map(i => `<div>• ${i.name} × <strong>${i.qty}</strong></div>`).join('')}
+            </div>
+            <p class="text-xs font-black text-emerald-600 mt-2">মোট: ৳${order.total}</p>
+          </div>
+          <div class="text-right flex flex-col gap-2">
+            <span class="text-xs font-bold px-2 py-1 rounded-md ${order.status === 'Served' ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-700'}">
+              ${order.status}
+            </span>
+            ${order.status === 'Preparing' ? `<button onclick="updateOrderStatus(${order.id}, 'Served')" class="text-xs bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-lg active:scale-95">Served মার্ক করুন</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateOrderStatus(id, newStatus) {
+      client.publish(TOPIC_STATUS, JSON.stringify({ id, status: newStatus }));
+    }
+
+    function clearOrders() {
+      orders = [];
+      localStorage.removeItem("active_orders");
+      renderOrders();
+    }
+
+    function switchView(view) {
+      const cust = document.getElementById("viewCustomer");
+      const own = document.getElementById("viewOwner");
+      const btnC = document.getElementById("btnCustomer");
+      const btnO = document.getElementById("btnOwner");
+
+      if (view === 'customer') {
+        cust.classList.remove("hidden");
+        own.classList.add("hidden");
+        btnC.classList.add("bg-white", "text-emerald-700", "shadow-sm");
+        btnC.classList.remove("text-slate-500");
+        btnO.classList.remove("bg-white", "text-emerald-700", "shadow-sm");
+        btnO.classList.add("text-slate-500");
+      } else {
+        cust.classList.add("hidden");
+        own.classList.remove("hidden");
+        btnO.classList.add("bg-white", "text-emerald-700", "shadow-sm");
+        btnO.classList.remove("text-slate-500");
+        btnC.classList.remove("bg-white", "text-emerald-700", "shadow-sm");
+        btnC.classList.add("text-slate-500");
+        renderOrders();
+      }
+    }
+
+    function generateQR() {
+      const tableVal = document.getElementById("qrTableInput").value || "1";
+      const qrContainer = document.getElementById("qrcode");
+      qrContainer.innerHTML = "";
+      const currentUrl = window.location.origin + window.location.pathname + "?table=" + tableVal;
+      new QRCode(qrContainer, {
+        text: currentUrl,
+        width: 100,
+        height: 100
+      });
+    }
+  </script>
+</body>
+</html>
