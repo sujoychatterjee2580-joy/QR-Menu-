@@ -3,314 +3,592 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart QR Order & Kitchen Dashboard</title>
+  <title>Smart QR Business & Order Hub</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- QRCode.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <!-- MQTT.js CDN (দুটি ডিভাইসে লাইভ কানেকশন ও সিঙ্কের জন্য) -->
+  <!-- MQTT.js CDN -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12 select-none">
 
-  <!-- টপ নেভিগেশন ও মোড সিলেক্টর -->
-  <header class="bg-white border-b sticky top-0 z-50 shadow-sm">
+  <!-- ================= টপ হেডার ================= -->
+  <header class="bg-white border-b sticky top-0 z-40 shadow-sm">
     <div class="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center gap-2">
-        <span id="connDot" class="w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse"></span>
-        <h1 class="font-black text-lg text-slate-900 tracking-tight">FoodDesk</h1>
-        <span id="connStatus" class="text-[10px] text-slate-400 font-medium">কানেক্টিং...</span>
+      <!-- সিক্রেট লোগো (৩ বার ট্যাপ করলে ওনার পিন চাইবে) -->
+      <div id="secretLogo" onclick="handleSecretTap()" class="flex items-center gap-2 cursor-pointer active:scale-95 transition">
+        <div class="w-8 h-8 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black text-sm shadow">
+          Q
+        </div>
+        <div>
+          <h1 id="brandTitle" class="font-black text-base text-slate-900 tracking-tight leading-tight">ফুড ডেক্স ক্যাফে</h1>
+          <div class="flex items-center gap-1.5">
+            <span id="connDot" class="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+            <span id="connText" class="text-[10px] text-slate-400 font-medium">কানেক্টিং...</span>
+          </div>
+        </div>
       </div>
-      <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
-        <button id="btnCustomer" onclick="switchView('customer')" class="px-3 py-1.5 rounded-lg bg-white shadow-sm text-emerald-700 transition">
-          কাস্টমার
-        </button>
-        <button id="btnOwner" onclick="switchView('owner')" class="px-3 py-1.5 rounded-lg text-slate-500 transition">
-          ওনার ড্যাশবোর্ড
+
+      <!-- ওনার মোডে থাকলে ব্যাক বাটন দেখাবে -->
+      <div id="ownerHeaderNav" class="hidden flex items-center gap-2">
+        <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">অ্যাডমিন মোড</span>
+        <button onclick="exitOwnerMode()" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-slate-800">
+          কাস্টমার ভিউ ➔
         </button>
       </div>
     </div>
   </header>
 
   <!-- ================= কাস্টমার ইন্টারফেস ================= -->
-  <section id="viewCustomer" class="max-w-md mx-auto px-4 pt-4">
+  <main id="customerView" class="max-w-md mx-auto px-4 pt-4">
     <!-- ব্যানার -->
-    <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-5 rounded-2xl shadow-sm mb-4">
-      <div class="flex justify-between items-start">
+    <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white p-5 rounded-3xl shadow-lg mb-4 relative overflow-hidden">
+      <div class="flex justify-between items-start relative z-10">
         <div>
-          <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">ডাইন-ইন মেনু</span>
-          <h2 class="text-xl font-bold mt-1">ক্যাফে চিলআউট</h2>
+          <span id="businessBadge" class="bg-emerald-500/30 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-emerald-400/30">
+            রেস্তোরাঁ ও ক্যাফে
+          </span>
+          <h2 id="bannerBizName" class="text-xl font-black mt-2 tracking-tight">ফুড ডেক্স ক্যাফে</h2>
+          <p id="subNotice" class="text-xs text-slate-300 mt-1">টেবিল থেকেই সরাসরি অর্ডার করুন</p>
         </div>
-        <div class="text-right">
-          <span class="text-xs text-white/80">টেবিল নম্বর</span>
-          <p id="tableBadge" class="text-2xl font-black">#1</p>
+        <div class="text-right bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
+          <span id="seatLabelBadge" class="text-[10px] text-slate-300 uppercase font-bold tracking-wider">টেবিল নং</span>
+          <p id="tableNumBadge" class="text-2xl font-black text-emerald-400">#1</p>
         </div>
       </div>
     </div>
 
-    <!-- মেনু আইটেম লিস্ট -->
-    <h3 class="font-bold text-sm text-slate-500 mb-2 px-1">আজকের মেনু</h3>
-    <div id="menuContainer" class="space-y-2.5 mb-24"></div>
+    <!-- ক্যাটাগরি ও মেনু আইটেম -->
+    <div class="flex justify-between items-center mb-2 px-1">
+      <h3 class="font-black text-sm text-slate-700">মেনু ও সেবাসমূহ</h3>
+      <span class="text-[11px] text-slate-400 font-semibold" id="menuCount">৪টি আইটেম</span>
+    </div>
+    
+    <div id="customerMenuList" class="space-y-2.5 mb-24"></div>
 
-    <!-- কাস্টমার কার্ট বার -->
-    <div id="cartBar" class="fixed bottom-4 left-4 right-4 max-w-md mx-auto hidden">
-      <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-xl flex justify-between items-center border border-white/10">
+    <!-- ফিক্সড কার্ট ও অর্ডার বার -->
+    <div id="cartBar" class="fixed bottom-4 left-4 right-4 max-w-md mx-auto hidden z-30">
+      <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl flex justify-between items-center border border-slate-700">
         <div>
-          <p id="cartCount" class="text-xs text-slate-300">০টি আইটেম সিলেক্টেড</p>
-          <p id="cartTotal" class="font-black text-base text-emerald-400">৳0</p>
+          <p id="cartItemsCount" class="text-xs text-slate-300 font-medium">০টি নির্বাচন করা হয়েছে</p>
+          <p id="cartTotalPrice" class="font-black text-lg text-emerald-400">₹0</p>
         </div>
-        <button onclick="placeOrder()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-3 rounded-xl transition">
-          অর্ডার পাঠান ➔
+        <button onclick="submitOrder()" class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs px-5 py-3 rounded-xl transition shadow">
+          অর্ডার কনফার্ম করুন ➔
         </button>
       </div>
     </div>
-  </section>
+  </main>
 
-  <!-- ================= ওনার ইন্টারফেস ================= -->
-  <section id="viewOwner" class="max-w-2xl mx-auto px-4 pt-4 hidden">
-    <!-- QR কোড জেনারেটর কার্ড -->
-    <div class="bg-white p-5 rounded-2xl border shadow-sm mb-5">
-      <h3 class="font-bold text-sm text-slate-900 mb-1">টেবিলের QR কোড প্রিন্ট/স্ক্যান</h3>
-      <p class="text-xs text-slate-500 mb-3">টেবিল নম্বর লিখুন এবং ফোনের ক্যামেরা দিয়ে QR স্ক্যান করে টেস্ট করুন।</p>
-      <div class="flex flex-wrap gap-5 items-center">
-        <div class="flex items-center gap-2">
-          <label class="text-xs font-bold text-slate-600">টেবিল নং:</label>
-          <input type="number" id="qrTableInput" value="1" min="1" max="50" class="w-16 border rounded-lg px-2 py-1 text-center font-bold text-sm" onchange="generateQR()">
+  <!-- ================= ওনার ও অ্যাডমিন ড্যাশবোর্ড ================= -->
+  <main id="ownerView" class="max-w-2xl mx-auto px-4 pt-4 hidden">
+    <!-- কুইক স্ট্যাটাস ও বিজনেস টাইপ সিলেক্টর -->
+    <div class="bg-white p-4 rounded-2xl border shadow-sm mb-4">
+      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ব্যবসার ধরন সিলেক্ট করুন</h3>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="setBusinessType('restaurant')" id="btnBizRest" class="py-2 px-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-800">
+          🍔 রেস্তোরাঁ/ক্যাফে
+        </button>
+        <button onclick="setBusinessType('salon')" id="btnBizSalon" class="py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600">
+          ✂️ সেলুন/পার্লার
+        </button>
+        <button onclick="setBusinessType('gym')" id="btnBizGym" class="py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600">
+          🏋️ জিম/ফিটনেস
+        </button>
+      </div>
+    </div>
+
+    <!-- সেটিংস ও QR জেনারেটর ট্যাব -->
+    <div class="bg-white p-5 rounded-2xl border shadow-sm mb-4 space-y-4">
+      <div>
+        <label class="text-xs font-bold text-slate-600">ব্যবসার ব্র্যান্ড নাম:</label>
+        <div class="flex gap-2 mt-1">
+          <input type="text" id="ownerBizNameInput" class="border rounded-xl px-3 py-1.5 text-sm w-full font-semibold focus:outline-emerald-500" placeholder="দোকান বা রেস্তোরাঁর নাম">
+          <button onclick="saveBizName()" class="bg-slate-900 text-white px-4 py-1.5 rounded-xl text-xs font-bold">সেভ</button>
         </div>
-        <div id="qrcode" class="p-2 bg-white rounded-lg border"></div>
+      </div>
+
+      <div class="pt-3 border-t flex flex-wrap gap-4 items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-slate-700 block">টেবিল / চেয়ার QR তৈরি:</span>
+          <div class="flex items-center gap-2 mt-1">
+            <input type="number" id="qrSeatInput" value="1" min="1" max="100" class="w-16 border rounded-lg px-2 py-1 text-center font-bold text-sm" onchange="refreshQR()">
+            <span id="qrSeatTypeLabel" class="text-xs text-slate-500">নম্বর টেবিল</span>
+          </div>
+        </div>
+        <div id="qrcodeBox" class="p-2 bg-slate-50 rounded-xl border flex flex-col items-center">
+          <div id="qrcode"></div>
+          <span class="text-[9px] text-slate-400 mt-1">ক্যামেরা দিয়ে স্ক্যান করুন</span>
+        </div>
       </div>
     </div>
 
     <!-- লাইভ অর্ডার ফিড -->
-    <div class="flex justify-between items-center mb-3">
-      <h3 class="font-bold text-sm text-slate-900">লাইভ কিচেন অর্ডারসমূহ</h3>
-      <button onclick="clearOrders()" class="text-xs text-red-500 font-semibold hover:underline">ক্লিয়ার অল</button>
+    <div class="mb-5">
+      <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center gap-2">
+          <h3 class="font-black text-sm text-slate-900">লাইভ সার্ভিস ও অর্ডার ফিড</h3>
+          <span id="pendingBadge" class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">০ চলমান</span>
+        </div>
+        <button onclick="clearAllOrders()" class="text-xs text-red-500 font-bold hover:underline">হিস্ট্রি ক্লিয়ার</button>
+      </div>
+      <div id="ownerOrdersList" class="space-y-3"></div>
     </div>
-    <div id="ordersContainer" class="space-y-3"></div>
-  </section>
+
+    <!-- মেনু আইটেম ম্যানেজমেন্ট -->
+    <div class="bg-white p-5 rounded-2xl border shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-black text-sm text-slate-900">আইটেম ও রেট চার্ট এডিট</h3>
+        <button onclick="toggleAddItemForm()" class="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
+          + নতুন আইটেম
+        </button>
+      </div>
+
+      <!-- নতুন আইটেম অ্যাড ফর্ম -->
+      <div id="addItemForm" class="hidden bg-slate-50 p-3.5 rounded-xl border mb-3 space-y-2">
+        <input type="text" id="newItemName" placeholder="আইটেম বা সার্ভিসের নাম" class="w-full text-xs p-2 border rounded-lg">
+        <input type="text" id="newItemDesc" placeholder="ছোট বিবরণ (যেমন: ফুল প্লেট / ৩০ মিনিট)" class="w-full text-xs p-2 border rounded-lg">
+        <div class="flex gap-2">
+          <input type="number" id="newItemPrice" placeholder="দাম (₹)" class="w-1/2 text-xs p-2 border rounded-lg font-bold">
+          <button onclick="saveNewItem()" class="w-1/2 bg-slate-900 text-white text-xs font-bold rounded-lg py-2">যোগ করুন</button>
+        </div>
+      </div>
+
+      <div id="ownerMenuList" class="divide-y text-xs"></div>
+    </div>
+  </main>
+
+  <!-- ================= সিক্রেট পিন ডায়ালগ মোডাল ================= -->
+  <div id="secretPinModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl text-center">
+      <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2 text-slate-700 font-black">
+        🔒
+      </div>
+      <h3 class="font-black text-base text-slate-900">ওনার প্যানেল অ্যাক্সেস</h3>
+      <p class="text-xs text-slate-400 mt-1 mb-4">গোপন পিন দিন (ডিফল্ট: 1234)</p>
+      <input type="password" id="secretPinInput" maxlength="4" class="w-36 text-center text-xl tracking-widest font-black border-2 border-slate-200 rounded-xl py-2 focus:border-emerald-500 focus:outline-none mb-4" placeholder="••••">
+      <div class="flex gap-2">
+        <button onclick="closePinModal()" class="w-1/2 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-xl">বাতিল</button>
+        <button onclick="verifySecretPin()" class="w-1/2 py-2 text-xs font-bold text-white bg-emerald-600 rounded-xl">আনলক</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    // ডামি মেনু
-    const menuItems = [
-      { id: 1, name: "চিকেন ক্রিস্পি বার্গার", price: 180, desc: "চিজি মেয়ো ও ক্রাঞ্চি চিকেন" },
-      { id: 2, name: "স্মোকি বিফ বার্গার", price: 240, desc: "বিবিসিউ সস ও ফ্রেশ অনিয়ন" },
-      { id: 3, name: "কোল্ড কফি", price: 120, desc: "আইসক্রিম টপিং ও চকলেট" },
-      { id: 4, name: "পেরি পেরি ফ্রাইস", price: 90, desc: "স্পাইসি সিজনিং ফ্রাইস" }
-    ];
+    // ডিফল্ট ডেটাসেট (ব্যবসার ধরন অনুযায়ী)
+    const businessTemplates = {
+      restaurant: {
+        type: 'restaurant',
+        name: 'ফুড ডেক্স ক্যাফে',
+        badge: 'রেস্তোরাঁ ও ক্যাফে',
+        seatName: 'টেবিল',
+        subNotice: 'টেবিল থেকেই সরাসরি অর্ডার করুন',
+        menu: [
+          { id: 1, name: "চিকেন বিরিয়ানি", price: 190, desc: "সুগন্ধি বাসমতী ও রায়তা সহ" },
+          { id: 2, name: "পনির মাখনওয়ালা", price: 160, desc: "ক্রিমি গ্রেভি ও মাখন রোটি পেয়ার" },
+          { id: 3, name: "মশলা কুলচা ও চা", price: 60, desc: "তন্দুরি কুলচা ও স্পাইসি চা" },
+          { id: 4, name: "কোল্ড কফি উইথ আইসক্রিম", price: 90, desc: "ডার্ক চকলেট ড্রিজল" }
+        ]
+      },
+      salon: {
+        type: 'salon',
+        name: 'গ্ল্যাম লুক ইউনিসেক্স সেলুন',
+        badge: 'সেলুন ও স্পা',
+        seatName: 'চেয়ার',
+        subNotice: 'আপনার সিটে বসেই সার্ভিস অর্ডার করুন',
+        menu: [
+          { id: 101, name: "হেয়ারকাট ও স্টাইলিং", price: 150, desc: "ট্রেন্ডি কাট ও হেয়ার ওয়াশ" },
+          { id: 102, name: "ফেসিয়াল গ্লো ট্রিটমেন্ট", price: 450, desc: "অর্গানিক ফলের নির্জাস দিয়ে গ্লো" },
+          { id: 103, name: "বিয়ার্ড ট্রিম ও শেপিং", price: 80, desc: "হট টাওয়েল ও আফটারশেভ" },
+          { id: 104, name: "হেড অয়েল ম্যাসাজ", price: 120, desc: "আয়ুর্বেদিক ম্যাসাজ ২০ মিনিট" }
+        ]
+      },
+      gym: {
+        type: 'gym',
+        name: 'পাওয়ারলিফ্ট ফিটনেস সেন্টার',
+        badge: 'জিম ও নিউট্রিশন',
+        seatName: 'লকার / আইডি',
+        subNotice: 'ওয়ার্কআউট শেক ও ট্রেইনার সার্ভিস অর্ডার করুন',
+        menu: [
+          { id: 201, name: "হুই প্রোটিন শেক", price: 90, desc: "২৪ গ্রাম প্রিমিয়াম প্রোটিন ও কলা" },
+          { id: 202, name: "বিসিএএ এনার্জি ড্রিংক", price: 60, desc: "ইলেক্ট্রোলাইট ও হাইড্রেশন" },
+          { id: 203, name: "পিনাট বাটার টোস্ট", price: 50, desc: "ব্রাউন ব্রেড ও ২ টেবিলচামচ পিনাট" },
+          { id: 204, name: "পার্সোনাল ট্রেইনিং সেশন", price: 300, desc: "১ ঘণ্টার কমপ্লিট গাইড" }
+        ]
+      }
+    };
 
+    // লোকাল স্টেট
+    let currentBizType = localStorage.getItem("biz_type") || "restaurant";
+    let activeBiz = JSON.parse(localStorage.getItem("biz_data_" + currentBizType)) || businessTemplates[currentBizType];
     let cart = {};
-    let currentTable = "1";
-    let orders = JSON.parse(localStorage.getItem("active_orders") || "[]");
+    let seatNumber = "1";
+    let orders = JSON.parse(localStorage.getItem("all_orders") || "[]");
 
-    // পাবলিক ফ্রি ক্লাউড ব্রোকার (WebSocket Over SSL)
+    // ক্লাউড ব্রোকার কনফিগারেশন (HiveMQ Free Broker - WebSockets SSL)
     const MQTT_BROKER = "wss://broker.hivemq.com:8884/mqtt";
-    // ইউনিক টপিক চ্যানেল (যাতে আপনার অর্ডার অন্য কারো সাথে মিশ্রিত না হয়)
-    const TOPIC_ORDERS = "my_qr_restaurant_channel_orders_v1";
-    const TOPIC_STATUS = "my_qr_restaurant_channel_status_v1";
+    // ইউনিক চ্যানেল নাম
+    const CHANNEL_ORDERS = "fooddesk_in_orders_channel_prod_v2";
+    const CHANNEL_SYNC = "fooddesk_in_sync_channel_prod_v2";
 
     const client = mqtt.connect(MQTT_BROKER);
 
     client.on("connect", () => {
-      document.getElementById("connDot").className = "w-2.5 h-2.5 bg-emerald-500 rounded-full";
-      document.getElementById("connStatus").innerText = "অনলাইন";
-      // অর্ডার ও স্ট্যাটাস আপডেট সাবস্ক্রাইব করা
-      client.subscribe([TOPIC_ORDERS, TOPIC_STATUS]);
+      document.getElementById("connDot").className = "w-2 h-2 bg-emerald-500 rounded-full";
+      document.getElementById("connText").innerText = "অনলাইন";
+      client.subscribe([CHANNEL_ORDERS, CHANNEL_SYNC]);
     });
 
     client.on("error", () => {
-      document.getElementById("connDot").className = "w-2.5 h-2.5 bg-red-500 rounded-full";
-      document.getElementById("connStatus").innerText = "ডিসকানেক্টেড";
+      document.getElementById("connDot").className = "w-2 h-2 bg-red-500 rounded-full";
+      document.getElementById("connText").innerText = "অফলাইন";
     });
 
-    // ক্লাউড থেকে অন্য ডিভাইসের পাঠানো মেসেজ আসলে
+    // ক্লাউড মেসেজ আসলে
     client.on("message", (topic, payload) => {
       try {
         const data = JSON.parse(payload.toString());
-        if (topic === TOPIC_ORDERS) {
-          // নতুন অর্ডার ড্রপ করেছে
+        if (topic === CHANNEL_ORDERS) {
+          // নতুন অর্ডার এলো
           orders.unshift(data);
-          localStorage.setItem("active_orders", JSON.stringify(orders));
-          renderOrders();
-          // নোটিফিকেশন সাউন্ড (ঐচ্ছিক ব্রাউজার বিপ)
-          playBeep();
-        } else if (topic === TOPIC_STATUS) {
-          // ওনার স্ট্যাটাস আপডেট করেছে
-          orders = orders.map(o => o.id === data.id ? { ...o, status: data.status } : o);
-          localStorage.setItem("active_orders", JSON.stringify(orders));
-          renderOrders();
+          localStorage.setItem("all_orders", JSON.stringify(orders));
+          renderOwnerOrders();
+          playKitchenBell();
+        } else if (topic === CHANNEL_SYNC) {
+          // মেনু বা বিজনেস তথ্য রিমোটলি আপডেট হলে কাস্টমার স্ক্রিন নিজে আপডেট হবে
+          if (data.type === "UPDATE_MENU" && data.bizType === currentBizType) {
+            activeBiz = data.bizData;
+            renderCustomerView();
+          }
         }
       } catch (err) {
         console.error(err);
       }
     });
 
-    // সাউন্ড বিপ অ্যালার্ট
-    function playBeep() {
+    // প্রফেশনাল রেস্তোরাঁ সার্ভিস বেল অডিও (Web Audio API)
+    function playKitchenBell() {
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-        osc.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.2);
-      } catch(e) {}
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // ডাবল ডিং বেল সিন্থেসিস
+        function ring(freq, time) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, time);
+          gain.gain.setValueAtTime(0.8, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.8);
+        }
+
+        ring(1200, audioCtx.currentTime);
+        ring(1600, audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.log("Audio not allowed yet by browser gesture");
+      }
     }
 
-    // পেজ লোড
-    window.onload = function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tableParam = urlParams.get('table');
-      if (tableParam) {
-        currentTable = tableParam;
-        document.getElementById('tableBadge').innerText = "#" + tableParam;
-        document.getElementById('qrTableInput').value = tableParam;
+    // ================= সিক্রেট লোগো ট্যাপ কাউন্টার =================
+    let tapCount = 0;
+    let tapTimer = null;
+
+    function handleSecretTap() {
+      tapCount++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { tapCount = 0; }, 900);
+
+      // ৩ বার দ্রুত ট্যাপ করলে পিন মোডাল খুলবে
+      if (tapCount >= 3) {
+        tapCount = 0;
+        document.getElementById("secretPinModal").classList.remove("hidden");
+        document.getElementById("secretPinInput").value = "";
+        document.getElementById("secretPinInput").focus();
       }
-      renderMenu();
-      renderOrders();
-      generateQR();
+    }
+
+    function closePinModal() {
+      document.getElementById("secretPinModal").classList.add("hidden");
+    }
+
+    function verifySecretPin() {
+      const pin = document.getElementById("secretPinInput").value;
+      if (pin === "1234") { // ডিফল্ট গোপন পিন
+        closePinModal();
+        enterOwnerMode();
+      } else {
+        alert("ভুল পিন কোড! সঠিক পিন দিন।");
+      }
+    }
+
+    function enterOwnerMode() {
+      document.getElementById("customerView").classList.add("hidden");
+      document.getElementById("ownerView").classList.remove("hidden");
+      document.getElementById("ownerHeaderNav").classList.remove("hidden");
+      renderOwnerView();
+    }
+
+    function exitOwnerMode() {
+      document.getElementById("ownerView").classList.add("hidden");
+      document.getElementById("customerView").classList.remove("hidden");
+      document.getElementById("ownerHeaderNav").classList.add("hidden");
+      renderCustomerView();
+    }
+
+    // ================= পেজ ইনিশিয়ালাইজেশন =================
+    window.onload = function() {
+      const params = new URLSearchParams(window.location.search);
+      const seatParam = params.get("seat") || params.get("table");
+      if (seatParam) {
+        seatNumber = seatParam;
+      }
+      renderCustomerView();
+      refreshQR();
     };
 
-    function renderMenu() {
-      const container = document.getElementById("menuContainer");
-      container.innerHTML = menuItems.map(item => `
-        <div class="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
-          <div>
-            <h4 class="font-bold text-sm text-slate-800">${item.name}</h4>
-            <p class="text-xs text-slate-400 mt-0.5">${item.desc}</p>
-            <p class="text-xs font-black text-emerald-600 mt-1">৳${item.price}</p>
+    // ================= কাস্টমার ভিউ লজিক =================
+    function renderCustomerView() {
+      document.getElementById("brandTitle").innerText = activeBiz.name;
+      document.getElementById("bannerBizName").innerText = activeBiz.name;
+      document.getElementById("businessBadge").innerText = activeBiz.badge;
+      document.getElementById("subNotice").innerText = activeBiz.subNotice;
+      document.getElementById("seatLabelBadge").innerText = activeBiz.seatName + " নং";
+      document.getElementById("tableNumBadge").innerText = "#" + seatNumber;
+      document.getElementById("menuCount").innerText = `${activeBiz.menu.length}টি আইটেম`;
+
+      const container = document.getElementById("customerMenuList");
+      container.innerHTML = activeBiz.menu.map(item => `
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex justify-between items-center transition hover:shadow-md">
+          <div class="pr-3">
+            <h4 class="font-black text-sm text-slate-800 leading-snug">${item.name}</h4>
+            <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">${item.desc || ''}</p>
+            <p class="text-xs font-black text-emerald-600 mt-1.5 text-base">₹${item.price}</p>
           </div>
-          <button onclick="addToCart(${item.id})" class="bg-emerald-50 active:scale-95 text-emerald-700 font-bold text-xs px-3.5 py-2 rounded-lg border border-emerald-200">
+          <button onclick="addToCart(${item.id})" class="bg-emerald-50 active:scale-90 text-emerald-700 font-black text-xs px-4 py-2.5 rounded-xl border border-emerald-300 shadow-sm transition whitespace-nowrap">
             + যোগ করুন ${cart[item.id] ? `<span class="bg-emerald-600 text-white rounded-full px-1.5 ml-1">${cart[item.id]}</span>` : ''}
           </button>
         </div>
       `).join('');
+
+      updateCartBar();
     }
 
     function addToCart(id) {
       cart[id] = (cart[id] || 0) + 1;
-      renderMenu();
-      updateCartBar();
+      renderCustomerView();
     }
 
     function updateCartBar() {
       const cartBar = document.getElementById("cartBar");
-      const totalCount = Object.values(cart).reduce((a, b) => a + b, 0);
-      if (totalCount > 0) {
-        let totalBill = 0;
+      const totalQty = Object.values(cart).reduce((a, b) => a + b, 0);
+
+      if (totalQty > 0) {
+        let bill = 0;
         for (let id in cart) {
-          const item = menuItems.find(m => m.id == id);
-          totalBill += item.price * cart[id];
+          const item = activeBiz.menu.find(m => m.id == id);
+          if (item) bill += item.price * cart[id];
         }
-        document.getElementById("cartCount").innerText = `${totalCount}টি আইটেম সিলেক্টেড`;
-        document.getElementById("cartTotal").innerText = `৳${totalBill}`;
+        document.getElementById("cartItemsCount").innerText = `${totalQty}টি আইটেম নির্বাচন করা হয়েছে`;
+        document.getElementById("cartTotalPrice").innerText = `₹${bill}`;
         cartBar.classList.remove("hidden");
       } else {
         cartBar.classList.add("hidden");
       }
     }
 
-    // কাস্টমার অর্ডার পাঠাবে (অন্য ডিভাইসের ওনারের স্ক্রিনে চলে যাবে)
-    function placeOrder() {
-      const orderItems = [];
+    function submitOrder() {
+      const orderList = [];
       let totalBill = 0;
       for (let id in cart) {
-        const item = menuItems.find(m => m.id == id);
-        orderItems.push({ name: item.name, qty: cart[id], price: item.price });
-        totalBill += item.price * cart[id];
+        const item = activeBiz.menu.find(m => m.id == id);
+        if (item) {
+          orderList.push({ name: item.name, qty: cart[id], price: item.price });
+          totalBill += item.price * cart[id];
+        }
       }
 
       const newOrder = {
         id: Math.floor(100 + Math.random() * 900),
-        table: currentTable,
-        items: orderItems,
+        bizType: currentBizType,
+        seatType: activeBiz.seatName,
+        seat: seatNumber,
+        items: orderList,
         total: totalBill,
-        status: "Preparing",
+        status: "প্রস্তুত হচ্ছে",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      // ক্লাউড ব্রোকারে পাবলিশ (সব ডিভাইসে সাথে সাথে পৌঁছাবে)
-      client.publish(TOPIC_ORDERS, JSON.stringify(newOrder));
+      // ক্লাউডে ব্রডকাস্ট (ওনার ডিভাইসে রিসিভ হবে)
+      client.publish(CHANNEL_ORDERS, JSON.stringify(newOrder));
 
       cart = {};
-      renderMenu();
-      updateCartBar();
-      alert("অর্ডার পাঠানো হয়েছে! কিচেন ড্যাশবোর্ডে এটি দেখা যাবে।");
+      renderCustomerView();
+      alert("ধন্যবাদ! আপনার অর্ডারটি কিচেন/স্টাফের কাছে পৌঁছে গেছে।");
     }
 
-    // ওনার ড্যাশবোর্ডে অর্ডার রেন্ডার
-    function renderOrders() {
-      const container = document.getElementById("ordersContainer");
+    // ================= ওনার ভিউ লজিক =================
+    function renderOwnerView() {
+      document.getElementById("ownerBizNameInput").value = activeBiz.name;
+      document.getElementById("qrSeatTypeLabel").innerText = `নম্বর ${activeBiz.seatName}`;
+      renderOwnerOrders();
+      renderOwnerMenuItems();
+      updateBizButtons();
+    }
+
+    function setBusinessType(type) {
+      currentBizType = type;
+      localStorage.setItem("biz_type", type);
+      activeBiz = JSON.parse(localStorage.getItem("biz_data_" + type)) || businessTemplates[type];
+      renderOwnerView();
+      broadcastMenuSync();
+    }
+
+    function updateBizButtons() {
+      ["restaurant", "salon", "gym"].forEach(t => {
+        const btn = document.getElementById("btnBiz" + t.charAt(0).toUpperCase() + t.slice(1));
+        if (t === currentBizType) {
+          btn.className = "py-2 px-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm";
+        } else {
+          btn.className = "py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600";
+        }
+      });
+    }
+
+    function saveBizName() {
+      const val = document.getElementById("ownerBizNameInput").value.trim();
+      if (val) {
+        activeBiz.name = val;
+        saveActiveBiz();
+        alert("নাম সফলভাবে আপডেট হয়েছে!");
+      }
+    }
+
+    function renderOwnerOrders() {
+      const container = document.getElementById("ownerOrdersList");
+      const pendingCount = orders.filter(o => o.status !== "সম্পন্ন").length;
+      document.getElementById("pendingBadge").innerText = `${pendingCount} চলমান`;
+
       if (orders.length === 0) {
-        container.innerHTML = `<div class="bg-white p-6 rounded-xl border text-center text-xs text-slate-400">কোনো অর্ডার এখনো আসেনি।</div>`;
+        container.innerHTML = `<div class="bg-white p-6 rounded-2xl border text-center text-xs text-slate-400">কোনো অর্ডার এখনো আসেনি।</div>`;
         return;
       }
+
       container.innerHTML = orders.map(order => `
-        <div class="bg-white p-4 rounded-xl border shadow-sm flex justify-between items-start">
+        <div class="bg-white p-4 rounded-2xl border shadow-sm flex justify-between items-start">
           <div>
             <div class="flex items-center gap-2">
-              <span class="font-black text-sm">#${order.id}</span>
-              <span class="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded">টেবিল ${order.table}</span>
+              <span class="font-black text-sm text-slate-900">#${order.id}</span>
+              <span class="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">${order.seatType} ${order.seat}</span>
               <span class="text-[11px] text-slate-400">${order.time}</span>
             </div>
-            <div class="mt-2 text-xs text-slate-600 space-y-0.5">
-              ${order.items.map(i => `<div>• ${i.name} × <strong>${i.qty}</strong></div>`).join('')}
+            <div class="mt-2 text-xs text-slate-700 space-y-0.5">
+              ${order.items.map(i => `<div>• ${i.name} × <strong class="text-slate-900">${i.qty}</strong></div>`).join('')}
             </div>
-            <p class="text-xs font-black text-emerald-600 mt-2">মোট: ৳${order.total}</p>
+            <p class="text-xs font-black text-emerald-600 mt-2">মোট বিল: ₹${order.total}</p>
           </div>
-          <div class="text-right flex flex-col gap-2">
-            <span class="text-xs font-bold px-2 py-1 rounded-md ${order.status === 'Served' ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-700'}">
+          <div class="text-right flex flex-col gap-2 items-end">
+            <span class="text-xs font-bold px-2.5 py-1 rounded-lg ${order.status === 'সম্পন্ন' ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-800'}">
               ${order.status}
             </span>
-            ${order.status === 'Preparing' ? `<button onclick="updateOrderStatus(${order.id}, 'Served')" class="text-xs bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-lg active:scale-95">Served মার্ক করুন</button>` : ''}
+            ${order.status !== 'সম্পন্ন' ? `
+              <button onclick="markOrderServed(${order.id})" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg shadow-sm active:scale-95">
+                Served মার্ক করুন
+              </button>
+            ` : ''}
           </div>
         </div>
       `).join('');
     }
 
-    function updateOrderStatus(id, newStatus) {
-      client.publish(TOPIC_STATUS, JSON.stringify({ id, status: newStatus }));
+    function markOrderServed(id) {
+      orders = orders.map(o => o.id === id ? { ...o, status: "সম্পন্ন" } : o);
+      localStorage.setItem("all_orders", JSON.stringify(orders));
+      renderOwnerOrders();
     }
 
-    function clearOrders() {
-      orders = [];
-      localStorage.removeItem("active_orders");
-      renderOrders();
-    }
-
-    function switchView(view) {
-      const cust = document.getElementById("viewCustomer");
-      const own = document.getElementById("viewOwner");
-      const btnC = document.getElementById("btnCustomer");
-      const btnO = document.getElementById("btnOwner");
-
-      if (view === 'customer') {
-        cust.classList.remove("hidden");
-        own.classList.add("hidden");
-        btnC.classList.add("bg-white", "text-emerald-700", "shadow-sm");
-        btnC.classList.remove("text-slate-500");
-        btnO.classList.remove("bg-white", "text-emerald-700", "shadow-sm");
-        btnO.classList.add("text-slate-500");
-      } else {
-        cust.classList.add("hidden");
-        own.classList.remove("hidden");
-        btnO.classList.add("bg-white", "text-emerald-700", "shadow-sm");
-        btnO.classList.remove("text-slate-500");
-        btnC.classList.remove("bg-white", "text-emerald-700", "shadow-sm");
-        btnC.classList.add("text-slate-500");
-        renderOrders();
+    function clearAllOrders() {
+      if (confirm("আপনি কি সব অর্ডার হিস্ট্রি মুছে ফেলতে চান?")) {
+        orders = [];
+        localStorage.removeItem("all_orders");
+        renderOwnerOrders();
       }
     }
 
-    function generateQR() {
-      const tableVal = document.getElementById("qrTableInput").value || "1";
-      const qrContainer = document.getElementById("qrcode");
-      qrContainer.innerHTML = "";
-      const currentUrl = window.location.origin + window.location.pathname + "?table=" + tableVal;
-      new QRCode(qrContainer, {
-        text: currentUrl,
-        width: 100,
-        height: 100
+    function renderOwnerMenuItems() {
+      const container = document.getElementById("ownerMenuList");
+      container.innerHTML = activeBiz.menu.map(item => `
+        <div class="py-2.5 flex justify-between items-center">
+          <div>
+            <p class="font-bold text-slate-800">${item.name}</p>
+            <p class="text-slate-400 text-[11px]">₹${item.price} · ${item.desc || ''}</p>
+          </div>
+          <button onclick="deleteMenuItem(${item.id})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1">মুছুন</button>
+        </div>
+      `).join('');
+    }
+
+    function toggleAddItemForm() {
+      document.getElementById("addItemForm").classList.toggle("hidden");
+    }
+
+    function saveNewItem() {
+      const name = document.getElementById("newItemName").value.trim();
+      const desc = document.getElementById("newItemDesc").value.trim();
+      const price = parseFloat(document.getElementById("newItemPrice").value);
+
+      if (!name || isNaN(price)) {
+        alert("আইটেমের নাম এবং সঠিক দাম দিন!");
+        return;
+      }
+
+      const newItem = { id: Date.now(), name, desc, price };
+      activeBiz.menu.push(newItem);
+      saveActiveBiz();
+      toggleAddItemForm();
+      document.getElementById("newItemName").value = "";
+      document.getElementById("newItemDesc").value = "";
+      document.getElementById("newItemPrice").value = "";
+      renderOwnerMenuItems();
+    }
+
+    function deleteMenuItem(id) {
+      activeBiz.menu = activeBiz.menu.filter(m => m.id !== id);
+      saveActiveBiz();
+      renderOwnerMenuItems();
+    }
+
+    function saveActiveBiz() {
+      localStorage.setItem("biz_data_" + currentBizType, JSON.stringify(activeBiz));
+      broadcastMenuSync();
+    }
+
+    function broadcastMenuSync() {
+      client.publish(CHANNEL_SYNC, JSON.stringify({
+        type: "UPDATE_MENU",
+        bizType: currentBizType,
+        bizData: activeBiz
+      }));
+    }
+
+    function refreshQR() {
+      const seatVal = document.getElementById("qrSeatInput").value || "1";
+      const qrBox = document.getElementById("qrcode");
+      qrBox.innerHTML = "";
+      const url = window.location.origin + window.location.pathname + "?seat=" + seatVal;
+      new QRCode(qrBox, {
+        text: url,
+        width: 110,
+        height: 110,
+        colorDark: "#0f172a",
+        colorLight: "#ffffff"
       });
     }
   </script>
