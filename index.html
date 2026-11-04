@@ -3,23 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OmniQR - Multi-Business Live Suite</title>
+  <title>OmniBiz - Smart QR Platform</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- QRCode.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- MQTT.js CDN -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-14 select-none">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-16 select-none">
 
-  <!-- ================= হেডার ও সিক্রেট অ্যাক্সেস ================= -->
+  <!-- ================= ১. প্রথমবার ভিজিটে অনবোর্ডিং স্ক্রিন ================= -->
+  <div id="onboardingScreen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 bg-emerald-600 text-white rounded-2xl flex items-center justify-center mx-auto text-2xl font-black shadow-lg shadow-emerald-600/30 mb-3">
+          ⚡
+        </div>
+        <h2 class="text-2xl font-black text-slate-900">আপনার ব্যবসা সেটআপ করুন</h2>
+        <p class="text-xs text-slate-400 mt-1">মাত্র ১ মিনিটে আপনার ডিজিটাল QR ক্যাটালগ ও অর্ডারিং চালু করুন</p>
+      </div>
+
+      <div class="space-y-4">
+        <!-- বিজনেসের ধরন সিলেকশন -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">১. ব্যবসার ধরন বেছে নিন:</label>
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" onclick="selectSetupBiz('restaurant')" id="setup_btn_restaurant" class="setup-biz-card p-3.5 rounded-2xl border-2 border-emerald-500 bg-emerald-50 text-left transition">
+              <span class="text-xl">🍔</span>
+              <p class="font-black text-xs text-slate-900 mt-1">রেস্তোরাঁ / ক্যাফে</p>
+              <p class="text-[10px] text-slate-500">টেবিল QR ও ফুড মেনু</p>
+            </button>
+            <button type="button" onclick="selectSetupBiz('salon')" id="setup_btn_salon" class="setup-biz-card p-3.5 rounded-2xl border-2 border-slate-200 text-left transition hover:border-slate-300">
+              <span class="text-xl">✂️</span>
+              <p class="font-black text-xs text-slate-900 mt-1">সেলুন / পার্লার</p>
+              <p class="text-[10px] text-slate-500">সিট বুকিং ও বিউটি সেবা</p>
+            </button>
+            <button type="button" onclick="selectSetupBiz('gym')" id="setup_btn_gym" class="setup-biz-card p-3.5 rounded-2xl border-2 border-slate-200 text-left transition hover:border-slate-300">
+              <span class="text-xl">🏋️</span>
+              <p class="font-black text-xs text-slate-900 mt-1">জিম / ফিটনেস</p>
+              <p class="text-[10px] text-slate-500">মেম্বারশিপ ও প্রোটিন বার</p>
+            </button>
+            <button type="button" onclick="selectSetupBiz('retail')" id="setup_btn_retail" class="setup-biz-card p-3.5 rounded-2xl border-2 border-slate-200 text-left transition hover:border-slate-300">
+              <span class="text-xl">🛍️</span>
+              <p class="font-black text-xs text-slate-900 mt-1">দোকান / গ্রোসারি</p>
+              <p class="text-[10px] text-slate-500">পিক-আপ ও হোম ডেলিভারি</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- ব্যবসার নাম -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">২. আপনার ব্যবসার নাম:</label>
+          <input type="text" id="setupBizName" placeholder="যেমন: রয়েল ফুড জোন / গ্ল্যামার স্পা" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <!-- সিক্রেট পিন কোড -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">৩. গোপন ওনার পিন (PIN):</label>
+          <input type="password" id="setupBizPin" maxlength="4" placeholder="৪ সংখ্যার পিন (যেমন: 1234)" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:border-emerald-500 focus:outline-none">
+          <p class="text-[10px] text-slate-400 mt-1">অ্যাডমিন ড্যাশবোর্ড খোলার জন্য এই পিনটি ব্যবহার করবেন।</p>
+        </div>
+
+        <button onclick="finishOnboarding()" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black py-3.5 rounded-2xl shadow-xl shadow-emerald-600/30 text-sm transition mt-2">
+          প্ল্যাটফর্ম চালু করুন 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ২. টপ হেডার বার ================= -->
   <header class="bg-white border-b sticky top-0 z-40 shadow-sm">
     <div class="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
-      <!-- লোগোতে ৩ বার ট্যাপ করলে ওনার পিন চাইবে -->
-      <div id="secretLogo" onclick="handleSecretTap()" class="flex items-center gap-2 cursor-pointer active:scale-95 transition">
+      <!-- লোগোতে ৩ বার দ্রুত ট্যাপ করলে অ্যাডমিন পিন চাইবে -->
+      <div id="brandHeaderBtn" onclick="handleSecretTap()" class="flex items-center gap-2.5 cursor-pointer active:scale-95 transition">
         <div class="w-8 h-8 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black text-sm shadow">
           Q
         </div>
         <div>
-          <h1 id="brandTitle" class="font-black text-base text-slate-900 tracking-tight leading-tight">ফুড ডেক্স ক্যাফে</h1>
+          <h1 id="headerBrandTitle" class="font-black text-base text-slate-900 tracking-tight leading-tight">OmniBiz</h1>
           <div class="flex items-center gap-1.5">
             <span id="connDot" class="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
             <span id="connText" class="text-[10px] text-slate-400 font-medium">কানেক্টিং...</span>
@@ -27,139 +93,144 @@
         </div>
       </div>
 
-      <!-- ওনার মোডে থাকলে সুইচ ব্যাক বাটন -->
-      <div id="ownerHeaderNav" class="hidden flex items-center gap-2">
-        <span class="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-bold">ওনার কন্ট্রোল</span>
-        <button onclick="exitOwnerMode()" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-slate-800">
+      <!-- ওনার ড্যাশবোর্ডে গেলে কাস্টমার ভিউতে ফেরার বাটন -->
+      <div id="ownerTopNav" class="hidden flex items-center gap-2">
+        <span class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-black uppercase">অ্যাডমিন মোড</span>
+        <button onclick="exitOwnerDashboard()" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-xl font-bold hover:bg-slate-800 transition">
           কাস্টমার পেজ ➔
         </button>
       </div>
     </div>
   </header>
 
-  <!-- ================= কাস্টমার ইন্টারফেস ================= -->
-  <main id="customerView" class="max-w-md mx-auto px-4 pt-4">
+  <!-- ================= ৩. কাস্টমার ফ্রন্টএন্ড স্ক্রিন ================= -->
+  <main id="customerScreen" class="max-w-md mx-auto px-4 pt-4">
     <!-- ব্যানার -->
     <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white p-5 rounded-3xl shadow-lg mb-4 relative overflow-hidden">
       <div class="flex justify-between items-start relative z-10">
         <div>
-          <span id="bizBadge" class="bg-emerald-500/30 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-emerald-400/30">
+          <span id="bannerBizBadge" class="bg-emerald-500/30 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-emerald-400/30">
             রেস্তোরাঁ ও ক্যাফে
           </span>
-          <h2 id="bannerBizName" class="text-xl font-black mt-2 tracking-tight">ফুড ডেক্স ক্যাফে</h2>
-          <p id="subNotice" class="text-xs text-slate-300 mt-1">টেবিল থেকেই সরাসরি অর্ডার করুন</p>
+          <h2 id="bannerBizTitle" class="text-xl font-black mt-2 tracking-tight">বিজনেস নাম</h2>
+          <p id="bannerSubNotice" class="text-xs text-slate-300 mt-1">টেবিল থেকেই সরাসরি অর্ডার করুন</p>
         </div>
-        <div id="seatBadgeBox" class="text-right bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
-          <span id="seatLabelBadge" class="text-[10px] text-slate-300 uppercase font-bold tracking-wider">টেবিল নং</span>
-          <p id="seatNumBadge" class="text-2xl font-black text-emerald-400">#1</p>
+        <div id="bannerSeatBox" class="text-right bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
+          <span id="seatTagText" class="text-[10px] text-slate-300 uppercase font-bold tracking-wider">টেবিল নং</span>
+          <p id="seatNumberValue" class="text-2xl font-black text-emerald-400">#1</p>
         </div>
       </div>
     </div>
 
-    <!-- ক্যাটাগরি স্পেসিফিক কাস্টমার ইনপুটস (ডাইনামিক ফিল্ডস) -->
-    <div id="dynamicInputsContainer" class="bg-white p-3.5 rounded-2xl border mb-4 space-y-2.5 shadow-sm text-xs">
+    <!-- বিজনেস-স্পেসিফিক ইন্টারেক্টিভ কাস্টমার ইনপুটস -->
+    <div id="dynamicInputPanel" class="bg-white p-3.5 rounded-2xl border mb-4 space-y-2.5 shadow-sm text-xs">
       <!-- রেস্তোরাঁ: স্পেশাল কুকিং নোট -->
       <div id="fieldRestaurant" class="space-y-1">
-        <label class="font-bold text-slate-600">কুকিং নোট / বিশেষ অনুরোধ (ঐচ্ছিক):</label>
-        <input type="text" id="custNote" placeholder="যেমন: কম ঝাল, পেঁয়াজ ছাড়া" class="w-full border rounded-xl p-2 focus:outline-emerald-500">
+        <label class="font-bold text-slate-600">কুকিং নোট / কোনো বিশেষ নির্দেশ:</label>
+        <input type="text" id="custKitchenNote" placeholder="যেমন: ঝাল কম, এক্সট্রা পেঁয়াজ দেবেন" class="w-full border rounded-xl p-2 focus:outline-emerald-500">
       </div>
 
       <!-- সেলুন: স্টাইলিস্ট সিলেকশন -->
       <div id="fieldSalon" class="hidden space-y-1">
-        <label class="font-bold text-slate-600">পছন্দের স্টাইলিস্ট / এক্সপার্ট:</label>
+        <label class="font-bold text-slate-600">পছন্দের স্টাইলিস্ট / থেরাপিস্ট:</label>
         <select id="custStylist" class="w-full border rounded-xl p-2 font-medium focus:outline-emerald-500 bg-white">
-          <option value="যে কেউ (Any Available)">যে কেউ (Any Available)</option>
-          <option value="রাহুল (সিনিয়র হেয়ার স্টাইলিস্ট)">রাহুল (সিনিয়র হেয়ার স্টাইলিস্ট)</option>
-          <option value="প্রিয়া (বিউটি স্পেশালিস্ট)">প্রিয়া (বিউটি স্পেশালিস্ট)</option>
+          <option value="যে কেউ (প্রথম উপলব্ধ)">যে কেউ (প্রথম উপলব্ধ)</option>
+          <option value="সিনিয়র স্টাইলিস্ট">সিনিয়র হেয়ার স্টাইলিস্ট</option>
+          <option value="বিউটি স্পেশালিস্ট">বিউটি স্পেশালিস্ট</option>
         </select>
       </div>
 
       <!-- জিম: মেম্বার টাইপ -->
       <div id="fieldGym" class="hidden space-y-1">
-        <label class="font-bold text-slate-600">মেম্বারশিপ টাইপ:</label>
-        <div class="flex gap-2">
-          <label class="flex items-center gap-1.5 font-medium"><input type="radio" name="gymMemberType" value="এক্সিস্টিং মেম্বার" checked> এক্সিস্টিং মেম্বার</label>
-          <label class="flex items-center gap-1.5 font-medium"><input type="radio" name="gymMemberType" value="নতুন ভর্তি"> নতুন অ্যাডমিশন</label>
+        <label class="font-bold text-slate-600">মেম্বারশিপ ধরণ:</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 font-bold"><input type="radio" name="gymType" value="বর্তমান মেম্বার" checked> বর্তমান মেম্বার</label>
+          <label class="flex items-center gap-1.5 font-bold"><input type="radio" name="gymType" value="নতুন ভর্তি"> নতুন অ্যাডমিশন</label>
         </div>
       </div>
 
-      <!-- রিটেইল: ডেলিভারি টাইপ ও ঠিকানা -->
+      <!-- রিটেইল: ডেলিভারি মোড -->
       <div id="fieldRetail" class="hidden space-y-2">
         <div class="flex gap-4">
-          <label class="flex items-center gap-1 font-bold"><input type="radio" name="retailType" value="পিক-আপ" checked onchange="toggleRetailAddress(false)"> কাউন্টার পিক-আপ</label>
-          <label class="flex items-center gap-1 font-bold"><input type="radio" name="retailType" value="ডেলিভারি" onchange="toggleRetailAddress(true)"> হোম ডেলিভারি</label>
+          <label class="flex items-center gap-1.5 font-bold"><input type="radio" name="retailMode" value="পিক-আপ" checked onchange="toggleRetailFields(false)"> কাউন্টার পিক-আপ</label>
+          <label class="flex items-center gap-1.5 font-bold"><input type="radio" name="retailMode" value="ডেলিভারি" onchange="toggleRetailFields(true)"> হোম ডেলিভারি</label>
         </div>
-        <div id="retailAddressBox" class="hidden space-y-1 pt-1 border-t">
-          <input type="tel" id="custPhone" placeholder="মোবাইল নম্বর" class="w-full border rounded-xl p-2">
-          <input type="text" id="custAddress" placeholder="ডেলিভারি ঠিকানা ও ল্যান্ডমার্ক" class="w-full border rounded-xl p-2">
+        <div id="retailAddressFields" class="hidden space-y-1.5 pt-1.5 border-t">
+          <input type="tel" id="retailCustPhone" placeholder="মোবাইল নম্বর" class="w-full border rounded-xl p-2">
+          <input type="text" id="retailCustAddress" placeholder="ডেলিভারি ঠিকানা ও ল্যান্ডমার্ক" class="w-full border rounded-xl p-2">
         </div>
       </div>
     </div>
 
-    <!-- মেনু বা সেবা তালিকা -->
+    <!-- ক্যাটালগ ও মেনু আইটেম -->
     <div class="flex justify-between items-center mb-2 px-1">
       <h3 class="font-black text-sm text-slate-700">আইটেম ও সেবাসমূহ</h3>
-      <span class="text-[11px] text-slate-400 font-semibold" id="menuCount">৪টি উপলব্ধ</span>
+      <span class="text-[11px] text-slate-400 font-semibold" id="menuItemCount">৪টি উপলব্ধ</span>
     </div>
-    
+
     <div id="customerMenuList" class="space-y-2.5 mb-24"></div>
 
-    <!-- কার্ট ও কনফার্মেশন বার -->
-    <div id="cartBar" class="fixed bottom-4 left-4 right-4 max-w-md mx-auto hidden z-30">
+    <!-- কাস্টমার কার্ট বার -->
+    <div id="customerCartBar" class="fixed bottom-4 left-4 right-4 max-w-md mx-auto hidden z-30">
       <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl flex justify-between items-center border border-slate-700">
         <div>
-          <p id="cartItemsCount" class="text-xs text-slate-300 font-medium">০টি নির্বাচন করা হয়েছে</p>
-          <p id="cartTotalPrice" class="font-black text-lg text-emerald-400">₹0</p>
+          <p id="cartItemsLabel" class="text-xs text-slate-300 font-medium">০টি আইটেম সিলেক্টেড</p>
+          <p id="cartTotalSum" class="font-black text-lg text-emerald-400">₹0</p>
         </div>
-        <button onclick="submitOrder()" class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs px-5 py-3 rounded-xl transition shadow">
+        <button onclick="handleOrderSubmit()" class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs px-5 py-3 rounded-xl transition shadow">
           কনফার্ম করুন ➔
         </button>
       </div>
     </div>
   </main>
 
-  <!-- ================= ওনার ও অ্যাডমিন ড্যাশবোর্ড ================= -->
-  <main id="ownerView" class="max-w-2xl mx-auto px-4 pt-4 hidden">
-    <!-- ৪টি ভিন্ন বিজনেস সুইচিং ট্যাব -->
+  <!-- ================= ৪. হিডেন ওনার অ্যাডমিন ড্যাশবোর্ড ================= -->
+  <main id="ownerScreen" class="max-w-2xl mx-auto px-4 pt-4 hidden">
+    <!-- কুইক বিজনেস পরিবর্তন ট্যাব -->
     <div class="bg-white p-4 rounded-2xl border shadow-sm mb-4">
-      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ব্যবসার ধরন বেছে নিন</h3>
+      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ব্যবসার ধরন পরিবর্তন</h3>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <button onclick="switchBusinessType('restaurant')" id="tab_restaurant" class="biz-tab py-2 px-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-800">
-          🍔 রেস্তোরাঁ/ক্যাফে
-        </button>
-        <button onclick="switchBusinessType('salon')" id="tab_salon" class="biz-tab py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600">
-          ✂️ সেলুন/পার্লার
-        </button>
-        <button onclick="switchBusinessType('gym')" id="tab_gym" class="biz-tab py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600">
-          🏋️ জিম/ফিটনেস
-        </button>
-        <button onclick="switchBusinessType('retail')" id="tab_retail" class="biz-tab py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600">
-          🛍️ রিটেইল/দোকান
-        </button>
+        <button onclick="switchLiveBusinessType('restaurant')" id="tab_restaurant" class="py-2 px-2 text-xs font-bold rounded-xl border">🍔 রেস্তোরাঁ</button>
+        <button onclick="switchLiveBusinessType('salon')" id="tab_salon" class="py-2 px-2 text-xs font-bold rounded-xl border">✂️ সেলুন</button>
+        <button onclick="switchLiveBusinessType('gym')" id="tab_gym" class="py-2 px-2 text-xs font-bold rounded-xl border">🏋️ জিম</button>
+        <button onclick="switchLiveBusinessType('retail')" id="tab_retail" class="py-2 px-2 text-xs font-bold rounded-xl border">🛍️ দোকান</button>
       </div>
     </div>
 
-    <!-- সেটিংস ও QR জেনারেটর -->
+    <!-- ওনার সেটিংস ও QR জেনারেটর -->
     <div class="bg-white p-5 rounded-2xl border shadow-sm mb-4 space-y-4">
+      <!-- ব্র্যান্ড নেম এডিট -->
       <div>
-        <label class="text-xs font-bold text-slate-600">ব্যবসার ব্র্যান্ড নাম:</label>
+        <label class="text-xs font-bold text-slate-600">ব্যবসার নাম এডিট করুন:</label>
         <div class="flex gap-2 mt-1">
           <input type="text" id="ownerBizNameInput" class="border rounded-xl px-3 py-1.5 text-sm w-full font-semibold focus:outline-emerald-500">
-          <button onclick="saveBrandName()" class="bg-slate-900 text-white px-4 py-1.5 rounded-xl text-xs font-bold">সেভ</button>
+          <button onclick="saveOwnerBrandName()" class="bg-slate-900 text-white px-4 py-1.5 rounded-xl text-xs font-bold">সেভ</button>
         </div>
       </div>
 
+      <!-- QR কোড জেনারেটর -->
       <div class="pt-3 border-t flex flex-wrap gap-4 items-center justify-between">
         <div>
-          <span class="text-xs font-bold text-slate-700 block">টেবিল / চেয়ার / কাউন্টার QR:</span>
+          <span class="text-xs font-bold text-slate-700 block">টেবিল / সিট / কাউন্টার QR:</span>
           <div class="flex items-center gap-2 mt-1">
-            <input type="number" id="qrSeatInput" value="1" min="1" max="100" class="w-16 border rounded-lg px-2 py-1 text-center font-bold text-sm" onchange="refreshQR()">
-            <span id="qrSeatTypeLabel" class="text-xs text-slate-500">নম্বর টেবিল</span>
+            <input type="number" id="qrSeatNumberInput" value="1" min="1" max="100" class="w-16 border rounded-lg px-2 py-1 text-center font-bold text-sm" onchange="renderLiveQR()">
+            <span id="qrSeatTypeName" class="text-xs text-slate-500">নম্বর টেবিল</span>
           </div>
         </div>
         <div class="p-2 bg-slate-50 rounded-xl border flex flex-col items-center">
-          <div id="qrcode"></div>
-          <span class="text-[9px] text-slate-400 mt-1">ক্যামেরা দিয়ে স্ক্যান করুন</span>
+          <div id="qrcodeBox"></div>
+          <span class="text-[9px] text-slate-400 mt-1">মোবাইল দিয়ে স্ক্যান করুন</span>
+        </div>
+      </div>
+
+      <!-- পিন পরিবর্তনের অপশন -->
+      <div class="pt-3 border-t">
+        <label class="text-xs font-bold text-slate-700 block mb-1">গোপন ওনার পিন (PIN) পরিবর্তন করুন:</label>
+        <div class="flex gap-2">
+          <input type="password" id="newPinInput" maxlength="4" placeholder="নতুন ৪ সংখ্যার পিন" class="border rounded-xl px-3 py-1.5 text-xs font-semibold w-40">
+          <button onclick="updateSecretPin()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 rounded-xl shadow-sm">
+            পিন আপডেট করুন
+          </button>
         </div>
       </div>
     </div>
@@ -169,54 +240,55 @@
       <div class="flex justify-between items-center mb-2">
         <div class="flex items-center gap-2">
           <h3 class="font-black text-sm text-slate-900">চলমান লাইভ রিকোয়েস্ট</h3>
-          <span id="pendingOrdersBadge" class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">০ অ্যাক্টিভ</span>
+          <span id="activeOrdersBadge" class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">০ অ্যাক্টিভ</span>
         </div>
-        <button onclick="clearOrdersHistory()" class="text-xs text-red-500 font-bold hover:underline">ক্লিয়ার অল</button>
+        <button onclick="clearAllOrdersHistory()" class="text-xs text-red-500 font-bold hover:underline">ক্লিয়ার অল</button>
       </div>
-      <div id="ownerOrdersList" class="space-y-3"></div>
+      <div id="ownerLiveOrdersFeed" class="space-y-3"></div>
     </div>
 
     <!-- ক্যাটালগ ও মেনু এডিটর -->
     <div class="bg-white p-5 rounded-2xl border shadow-sm">
       <div class="flex justify-between items-center mb-3">
         <h3 class="font-black text-sm text-slate-900">আইটেম ও মূল্য তালিকা এডিট</h3>
-        <button onclick="toggleAddItemForm()" class="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
+        <button onclick="toggleAddItemDrawer()" class="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
           + নতুন আইটেম
         </button>
       </div>
 
-      <div id="addItemForm" class="hidden bg-slate-50 p-3.5 rounded-xl border mb-3 space-y-2">
-        <input type="text" id="newItemName" placeholder="নাম (যেমন: হেয়ারকাট / প্রোটিন শেক)" class="w-full text-xs p-2 border rounded-lg">
-        <input type="text" id="newItemDesc" placeholder="ছোট বিবরণ (যেমন: ৩০ মিনিট / ৫০০ গ্রাম)" class="w-full text-xs p-2 border rounded-lg">
+      <!-- নতুন আইটেম ফর্ম -->
+      <div id="addItemDrawer" class="hidden bg-slate-50 p-3.5 rounded-xl border mb-3 space-y-2">
+        <input type="text" id="newItemTitle" placeholder="আইটেম বা সেবার নাম" class="w-full text-xs p-2 border rounded-lg">
+        <input type="text" id="newItemDetails" placeholder="ছোট বিবরণ (যেমন: ফুল প্লেট / ৩০ মিনিট)" class="w-full text-xs p-2 border rounded-lg">
         <div class="flex gap-2">
-          <input type="number" id="newItemPrice" placeholder="মূল্য (₹)" class="w-1/2 text-xs p-2 border rounded-lg font-bold">
-          <button onclick="saveNewItem()" class="w-1/2 bg-slate-900 text-white text-xs font-bold rounded-lg py-2">যোগ করুন</button>
+          <input type="number" id="newItemCost" placeholder="দাম (₹)" class="w-1/2 text-xs p-2 border rounded-lg font-bold">
+          <button onclick="saveNewCatalogItem()" class="w-1/2 bg-slate-900 text-white text-xs font-bold rounded-lg py-2">যোগ করুন</button>
         </div>
       </div>
 
-      <div id="ownerMenuList" class="divide-y text-xs"></div>
+      <div id="ownerMenuItemsFeed" class="divide-y text-xs"></div>
     </div>
   </main>
 
-  <!-- ================= পিন মোডাল ================= -->
-  <div id="secretPinModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl text-center">
+  <!-- ================= ৫. সিক্রেট পিন মোডাল ================= -->
+  <div id="secretPinPromptModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl text-center">
       <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2 text-slate-700 font-black">
         🔒
       </div>
       <h3 class="font-black text-base text-slate-900">ওনার প্যানেল অ্যাক্সেস</h3>
-      <p class="text-xs text-slate-400 mt-1 mb-4">গোপন পিন দিন (ডিফল্ট: 1234)</p>
-      <input type="password" id="secretPinInput" maxlength="4" class="w-36 text-center text-xl tracking-widest font-black border-2 border-slate-200 rounded-xl py-2 focus:border-emerald-500 focus:outline-none mb-4" placeholder="••••">
+      <p class="text-xs text-slate-400 mt-1 mb-4">আপনার গোপন ৪ সংখ্যার পিন দিন</p>
+      <input type="password" id="enteredPinInput" maxlength="4" class="w-36 text-center text-xl tracking-widest font-black border-2 border-slate-200 rounded-xl py-2 focus:border-emerald-500 focus:outline-none mb-4" placeholder="••••">
       <div class="flex gap-2">
-        <button onclick="closePinModal()" class="w-1/2 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-xl">বাতিল</button>
-        <button onclick="verifySecretPin()" class="w-1/2 py-2 text-xs font-bold text-white bg-emerald-600 rounded-xl">আনলক</button>
+        <button onclick="closePinPrompt()" class="w-1/2 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-xl">বাতিল</button>
+        <button onclick="verifyEnteredPin()" class="w-1/2 py-2 text-xs font-bold text-white bg-emerald-600 rounded-xl">আনলক</button>
       </div>
     </div>
   </div>
 
   <script>
-    // ৪টি স্বতন্ত্র বিজনেসের সম্পূর্ণ আলাদা ডেটাসেট ও কাঠামো
-    const defaultTemplates = {
+    // ডিফল্ট ক্যাটাগরি ডেটাসেট
+    const businessConfigs = {
       restaurant: {
         type: 'restaurant',
         name: 'ফুড ডেক্স ক্যাফে',
@@ -275,16 +347,82 @@
       }
     };
 
-    let currentBizType = localStorage.getItem("omni_biz_type") || "restaurant";
-    let activeBiz = JSON.parse(localStorage.getItem("omni_data_" + currentBizType)) || defaultTemplates[currentBizType];
+    // গ্লোবাল স্টেট
+    let currentBizType = localStorage.getItem("app_biz_type") || "restaurant";
+    let activeBiz = JSON.parse(localStorage.getItem("app_biz_data_" + currentBizType)) || businessConfigs[currentBizType];
+    let ownerPin = localStorage.getItem("app_owner_pin") || "1234";
+    let selectedSetupType = 'restaurant';
     let cart = {};
     let seatNumber = "1";
-    let orders = JSON.parse(localStorage.getItem("omni_orders") || "[]");
+    let orders = JSON.parse(localStorage.getItem("app_orders") || "[]");
+
+    // ================= সাউন্ড ইঞ্জিন (Web Audio API) =================
+    const SoundEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      },
+      playClick() {
+        try {
+          this.init();
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.05);
+        } catch(e) {}
+      },
+      playOrderSuccess() {
+        try {
+          this.init();
+          const now = this.ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(freq, now + i * 0.08);
+            gain.gain.setValueAtTime(0.3, now + i * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + i * 0.08);
+            osc.stop(now + i * 0.08 + 0.25);
+          });
+        } catch(e) {}
+      },
+      playKitchenBell() {
+        try {
+          this.init();
+          const now = this.ctx.currentTime;
+          function ring(freq, time) {
+            const osc = SoundEngine.ctx.createOscillator();
+            const gain = SoundEngine.ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, time);
+            gain.gain.setValueAtTime(0.8, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+            osc.connect(gain);
+            gain.connect(SoundEngine.ctx.destination);
+            osc.start(time);
+            osc.stop(time + 0.8);
+          }
+          ring(1200, now);
+          ring(1600, now + 0.14);
+        } catch(e) {}
+      }
+    };
 
     // ক্লাউড ব্রোকার (WebSocket SSL)
     const MQTT_BROKER = "wss://broker.hivemq.com:8884/mqtt";
-    const CHANNEL_ORDERS = "omni_qr_orders_channel_v3";
-    const CHANNEL_SYNC = "omni_qr_sync_channel_v3";
+    const CHANNEL_ORDERS = "omnibiz_cloud_orders_v4";
+    const CHANNEL_SYNC = "omnibiz_cloud_sync_v4";
 
     const client = mqtt.connect(MQTT_BROKER);
 
@@ -304,102 +442,91 @@
         const data = JSON.parse(payload.toString());
         if (topic === CHANNEL_ORDERS) {
           orders.unshift(data);
-          localStorage.setItem("omni_orders", JSON.stringify(orders));
-          renderOwnerOrders();
-          playDualBell();
+          localStorage.setItem("app_orders", JSON.stringify(orders));
+          renderOwnerOrdersFeed();
+          SoundEngine.playKitchenBell();
         } else if (topic === CHANNEL_SYNC) {
           if (data.type === "UPDATE_MENU" && data.bizType === currentBizType) {
             activeBiz = data.bizData;
-            renderCustomerView();
+            renderCustomerScreen();
           }
         }
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        console.error(err);
       }
     });
 
-    // সার্ভিস বেল সাউন্ড
-    function playDualBell() {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        function ring(freq, start) {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, start);
-          gain.gain.setValueAtTime(0.7, start);
-          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.7);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(start);
-          osc.stop(start + 0.7);
+    // ================= অনবোর্ডিং সেটআপ লজিক =================
+    function selectSetupBiz(type) {
+      selectedSetupType = type;
+      SoundEngine.playClick();
+      ['restaurant', 'salon', 'gym', 'retail'].forEach(t => {
+        const btn = document.getElementById("setup_btn_" + t);
+        if (t === type) {
+          btn.className = "setup-biz-card p-3.5 rounded-2xl border-2 border-emerald-500 bg-emerald-50 text-left transition shadow-sm";
+        } else {
+          btn.className = "setup-biz-card p-3.5 rounded-2xl border-2 border-slate-200 text-left transition hover:border-slate-300";
         }
-        ring(1200, ctx.currentTime);
-        ring(1600, ctx.currentTime + 0.12);
-      } catch(e) {}
+      });
+      document.getElementById("setupBizName").value = businessConfigs[type].name;
     }
 
-    // সিক্রেট ট্যাপ লিসেনার (৩ ক্লিকে পিন)
-    let tapCount = 0;
-    let tapTimer = null;
-    function handleSecretTap() {
-      tapCount++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => { tapCount = 0; }, 800);
-      if (tapCount >= 3) {
-        tapCount = 0;
-        document.getElementById("secretPinModal").classList.remove("hidden");
-        document.getElementById("secretPinInput").value = "";
-        document.getElementById("secretPinInput").focus();
+    function finishOnboarding() {
+      const name = document.getElementById("setupBizName").value.trim();
+      const pin = document.getElementById("setupBizPin").value.trim();
+
+      if (!name) {
+        alert("আপনার ব্যবসার নাম লিখুন!");
+        return;
       }
-    }
-
-    function closePinModal() {
-      document.getElementById("secretPinModal").classList.add("hidden");
-    }
-
-    function verifySecretPin() {
-      if (document.getElementById("secretPinInput").value === "1234") {
-        closePinModal();
-        enterOwnerMode();
-      } else {
-        alert("ভুল পিন কোড!");
+      if (!pin || pin.length !== 4) {
+        alert("৪ সংখ্যার একটি গোপন পিন দিন!");
+        return;
       }
+
+      currentBizType = selectedSetupType;
+      ownerPin = pin;
+      activeBiz = JSON.parse(JSON.stringify(businessConfigs[selectedSetupType]));
+      activeBiz.name = name;
+
+      localStorage.setItem("app_is_setup_done", "true");
+      localStorage.setItem("app_biz_type", currentBizType);
+      localStorage.setItem("app_owner_pin", ownerPin);
+      localStorage.setItem("app_biz_data_" + currentBizType, JSON.stringify(activeBiz));
+
+      SoundEngine.playOrderSuccess();
+      document.getElementById("onboardingScreen").classList.add("hidden");
+      renderCustomerScreen();
+      renderLiveQR();
     }
 
-    function enterOwnerMode() {
-      document.getElementById("customerView").classList.add("hidden");
-      document.getElementById("ownerView").classList.remove("hidden");
-      document.getElementById("ownerHeaderNav").classList.remove("hidden");
-      renderOwnerView();
-    }
-
-    function exitOwnerMode() {
-      document.getElementById("ownerView").classList.add("hidden");
-      document.getElementById("customerView").classList.remove("hidden");
-      document.getElementById("ownerHeaderNav").classList.add("hidden");
-      renderCustomerView();
-    }
-
+    // ================= পেজ লোড =================
     window.onload = function() {
+      const isSetupDone = localStorage.getItem("app_is_setup_done");
+      if (!isSetupDone) {
+        document.getElementById("onboardingScreen").classList.remove("hidden");
+        selectSetupBiz('restaurant');
+      }
+
       const p = new URLSearchParams(window.location.search);
       const s = p.get("seat") || p.get("table");
       if (s) seatNumber = s;
-      renderCustomerView();
-      refreshQR();
+
+      renderCustomerScreen();
+      renderLiveQR();
     };
 
-    // ================= কাস্টমার ইন্টারফেস লজিক =================
-    function renderCustomerView() {
-      document.getElementById("brandTitle").innerText = activeBiz.name;
-      document.getElementById("bannerBizName").innerText = activeBiz.name;
-      document.getElementById("bizBadge").innerText = activeBiz.badge;
-      document.getElementById("subNotice").innerText = activeBiz.subNotice;
-      document.getElementById("seatLabelBadge").innerText = activeBiz.seatName + " নং";
-      document.getElementById("seatNumBadge").innerText = "#" + seatNumber;
-      document.getElementById("menuCount").innerText = `${activeBiz.menu.length}টি উপলব্ধ`;
+    // ================= কাস্টমার ইন্টারফেস =================
+    function renderCustomerScreen() {
+      document.getElementById("headerBrandTitle").innerText = activeBiz.name;
+      document.getElementById("bannerBizTitle").innerText = activeBiz.name;
+      document.getElementById("bannerBizBadge").innerText = activeBiz.badge;
+      document.getElementById("bannerSubNotice").innerText = activeBiz.subNotice;
+      document.getElementById("seatTagText").innerText = activeBiz.seatName + " নং";
+      document.getElementById("seatNumberValue").innerText = "#" + seatNumber;
+      document.getElementById("menuItemCount").innerText = `${activeBiz.menu.length}টি উপলব্ধ`;
 
-      // ফিল্ড টগল
+      // ডাইনামিক ফিল্ড ডিসপ্লে
       document.getElementById("fieldRestaurant").classList.toggle("hidden", currentBizType !== "restaurant");
       document.getElementById("fieldSalon").classList.toggle("hidden", currentBizType !== "salon");
       document.getElementById("fieldGym").classList.toggle("hidden", currentBizType !== "gym");
@@ -413,26 +540,28 @@
             <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">${item.desc || ''}</p>
             <p class="text-xs font-black text-emerald-600 mt-1.5 text-base">₹${item.price}</p>
           </div>
-          <button onclick="addToCart(${item.id})" class="bg-emerald-50 active:scale-90 text-emerald-700 font-black text-xs px-4 py-2.5 rounded-xl border border-emerald-300 shadow-sm transition whitespace-nowrap">
+          <button onclick="addItemToCart(${item.id})" class="bg-emerald-50 active:scale-90 text-emerald-700 font-black text-xs px-4 py-2.5 rounded-xl border border-emerald-300 shadow-sm transition whitespace-nowrap">
             + যোগ করুন ${cart[item.id] ? `<span class="bg-emerald-600 text-white rounded-full px-1.5 ml-1">${cart[item.id]}</span>` : ''}
           </button>
         </div>
       `).join('');
 
-      updateCartBar();
+      updateCustomerCartBar();
     }
 
-    function toggleRetailAddress(isDelivery) {
-      document.getElementById("retailAddressBox").classList.toggle("hidden", !isDelivery);
+    function toggleRetailFields(isDelivery) {
+      SoundEngine.playClick();
+      document.getElementById("retailAddressFields").classList.toggle("hidden", !isDelivery);
     }
 
-    function addToCart(id) {
+    function addItemToCart(id) {
+      SoundEngine.playClick();
       cart[id] = (cart[id] || 0) + 1;
-      renderCustomerView();
+      renderCustomerScreen();
     }
 
-    function updateCartBar() {
-      const cartBar = document.getElementById("cartBar");
+    function updateCustomerCartBar() {
+      const cartBar = document.getElementById("customerCartBar");
       const totalQty = Object.values(cart).reduce((a, b) => a + b, 0);
 
       if (totalQty > 0) {
@@ -441,15 +570,15 @@
           const item = activeBiz.menu.find(m => m.id == id);
           if (item) bill += item.price * cart[id];
         }
-        document.getElementById("cartItemsCount").innerText = `${totalQty}টি নির্বাচন করা হয়েছে`;
-        document.getElementById("cartTotalPrice").innerText = `₹${bill}`;
+        document.getElementById("cartItemsLabel").innerText = `${totalQty}টি আইটেম সিলেক্টেড`;
+        document.getElementById("cartTotalSum").innerText = `₹${bill}`;
         cartBar.classList.remove("hidden");
       } else {
         cartBar.classList.add("hidden");
       }
     }
 
-    function submitOrder() {
+    function handleOrderSubmit() {
       const orderItems = [];
       let totalBill = 0;
       for (let id in cart) {
@@ -460,23 +589,22 @@
         }
       }
 
-      // বিজনেস-স্পেসিফিক মেটাডাটা
       let meta = {};
       if (currentBizType === 'restaurant') {
-        meta.note = document.getElementById("custNote").value.trim();
+        meta.note = document.getElementById("custKitchenNote").value.trim();
       } else if (currentBizType === 'salon') {
         meta.stylist = document.getElementById("custStylist").value;
       } else if (currentBizType === 'gym') {
-        const typeElem = document.querySelector('input[name="gymMemberType"]:checked');
+        const typeElem = document.querySelector('input[name="gymType"]:checked');
         meta.memberType = typeElem ? typeElem.value : "জেনারেল";
       } else if (currentBizType === 'retail') {
-        const rType = document.querySelector('input[name="retailType"]:checked').value;
-        meta.deliveryMode = rType;
-        if (rType === "ডেলিভারি") {
-          meta.phone = document.getElementById("custPhone").value.trim();
-          meta.address = document.getElementById("custAddress").value.trim();
+        const rMode = document.querySelector('input[name="retailMode"]:checked').value;
+        meta.deliveryMode = rMode;
+        if (rMode === "ডেলিভারি") {
+          meta.phone = document.getElementById("retailCustPhone").value.trim();
+          meta.address = document.getElementById("retailCustAddress").value.trim();
           if (!meta.phone || !meta.address) {
-            alert("হোম ডেলিভারির জন্য ফোন নম্বর ও ঠিকানা দেওয়া আবশ্যক!");
+            alert("হোম ডেলিভারির জন্য ফোন নম্বর ও ঠিকানা দিতে হবে!");
             return;
           }
         }
@@ -495,52 +623,118 @@
       };
 
       client.publish(CHANNEL_ORDERS, JSON.stringify(newOrder));
+      SoundEngine.playOrderSuccess();
+
       cart = {};
-      renderCustomerView();
+      renderCustomerScreen();
       alert("ধন্যবাদ! আপনার রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে।");
     }
 
-    // ================= ওনার ড্যাশবোর্ড লজিক =================
-    function renderOwnerView() {
+    // ================= সিক্রেট ট্যাপ ও অ্যাডমিন পিন ভেরিফিকেশন =================
+    let tapCounter = 0;
+    let tapResetTimeout = null;
+
+    function handleSecretTap() {
+      tapCounter++;
+      clearTimeout(tapResetTimeout);
+      tapResetTimeout = setTimeout(() => { tapCounter = 0; }, 800);
+
+      // ৩ বার দ্রুত ক্লিক করলে পিন পপআপ
+      if (tapCounter >= 3) {
+        tapCounter = 0;
+        SoundEngine.playClick();
+        document.getElementById("secretPinPromptModal").classList.remove("hidden");
+        document.getElementById("enteredPinInput").value = "";
+        document.getElementById("enteredPinInput").focus();
+      }
+    }
+
+    function closePinPrompt() {
+      document.getElementById("secretPinPromptModal").classList.add("hidden");
+    }
+
+    function verifyEnteredPin() {
+      const pin = document.getElementById("enteredPinInput").value;
+      if (pin === ownerPin) {
+        SoundEngine.playClick();
+        closePinPrompt();
+        enterOwnerDashboard();
+      } else {
+        alert("ভুল পিন কোড!");
+      }
+    }
+
+    function enterOwnerDashboard() {
+      document.getElementById("customerScreen").classList.add("hidden");
+      document.getElementById("ownerScreen").classList.remove("hidden");
+      document.getElementById("ownerTopNav").classList.remove("hidden");
+      renderOwnerDashboardView();
+    }
+
+    function exitOwnerDashboard() {
+      document.getElementById("ownerScreen").classList.add("hidden");
+      document.getElementById("customerScreen").classList.remove("hidden");
+      document.getElementById("ownerTopNav").classList.add("hidden");
+      renderCustomerScreen();
+    }
+
+    // ================= ওনার ড্যাশবোর্ড ম্যানেজমেন্ট =================
+    function renderOwnerDashboardView() {
       document.getElementById("ownerBizNameInput").value = activeBiz.name;
-      document.getElementById("qrSeatTypeLabel").innerText = `নম্বর ${activeBiz.seatName}`;
-      renderOwnerOrders();
-      renderOwnerMenuList();
-      updateBizTabStyles();
+      document.getElementById("qrSeatTypeName").innerText = `নম্বর ${activeBiz.seatName}`;
+      renderOwnerOrdersFeed();
+      renderOwnerMenuItemsFeed();
+      updateOwnerTabs();
     }
 
-    function switchBusinessType(type) {
+    function switchLiveBusinessType(type) {
+      SoundEngine.playClick();
       currentBizType = type;
-      localStorage.setItem("omni_biz_type", type);
-      activeBiz = JSON.parse(localStorage.getItem("omni_data_" + type)) || defaultTemplates[type];
-      renderOwnerView();
-      broadcastSync();
+      localStorage.setItem("app_biz_type", type);
+      activeBiz = JSON.parse(localStorage.getItem("app_biz_data_" + type)) || businessConfigs[type];
+      renderOwnerDashboardView();
+      broadcastConfigSync();
     }
 
-    function updateBizTabStyles() {
+    function updateOwnerTabs() {
       ['restaurant', 'salon', 'gym', 'retail'].forEach(t => {
         const btn = document.getElementById("tab_" + t);
         if (t === currentBizType) {
-          btn.className = "biz-tab py-2 px-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm";
+          btn.className = "py-2 px-2 text-xs font-bold rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm";
         } else {
-          btn.className = "biz-tab py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600";
+          btn.className = "py-2 px-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600";
         }
       });
     }
 
-    function saveBrandName() {
+    function saveOwnerBrandName() {
       const val = document.getElementById("ownerBizNameInput").value.trim();
       if (val) {
         activeBiz.name = val;
-        saveActiveBiz();
-        alert("নাম সেভ করা হয়েছে!");
+        saveActiveBusinessData();
+        SoundEngine.playClick();
+        alert("নাম সফলভাবে পরিবর্তন হয়েছে!");
       }
     }
 
-    function renderOwnerOrders() {
-      const container = document.getElementById("ownerOrdersList");
+    // পিন পরিবর্তন করার ফিচার
+    function updateSecretPin() {
+      const newPin = document.getElementById("newPinInput").value.trim();
+      if (newPin && newPin.length === 4) {
+        ownerPin = newPin;
+        localStorage.setItem("app_owner_pin", newPin);
+        document.getElementById("newPinInput").value = "";
+        SoundEngine.playOrderSuccess();
+        alert("গোপন ওনার পিন সফলভাবে পরিবর্তন করা হয়েছে!");
+      } else {
+        alert("৪ সংখ্যার একটি সঠিক পিন দিন!");
+      }
+    }
+
+    function renderOwnerOrdersFeed() {
+      const container = document.getElementById("ownerLiveOrdersFeed");
       const activeCount = orders.filter(o => o.status !== "পরিবেশন সম্পন্ন" && o.status !== "সম্পন্ন" && o.status !== "ডেলিভার্ড").length;
-      document.getElementById("pendingOrdersBadge").innerText = `${activeCount} অ্যাক্টিভ`;
+      document.getElementById("activeOrdersBadge").innerText = `${activeCount} অ্যাক্টিভ`;
 
       if (orders.length === 0) {
         container.innerHTML = `<div class="bg-white p-6 rounded-2xl border text-center text-xs text-slate-400">কোনো লাইভ রিকোয়েস্ট নেই।</div>`;
@@ -571,7 +765,7 @@
                 ${order.items.map(i => `<div>• ${i.name} × <strong class="text-slate-900">${i.qty}</strong></div>`).join('')}
               </div>
               ${metaHtml}
-              <p class="text-xs font-black text-emerald-600 mt-2">মোট: ₹${order.total}</p>
+              <p class="text-xs font-black text-emerald-600 mt-2">মোট বিল: ₹${order.total}</p>
             </div>
             <div class="text-right flex flex-col gap-2 items-end">
               <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -587,75 +781,79 @@
     }
 
     function advanceOrderStatus(id) {
+      SoundEngine.playClick();
       orders = orders.map(o => {
         if (o.id === id) {
-          const t = defaultTemplates[o.bizType] || activeBiz;
+          const t = businessConfigs[o.bizType] || activeBiz;
           const idx = t.statusSteps.indexOf(o.status);
           const next = t.statusSteps[idx + 1] || "সম্পন্ন";
           return { ...o, status: next };
         }
         return o;
       });
-      localStorage.setItem("omni_orders", JSON.stringify(orders));
-      renderOwnerOrders();
+      localStorage.setItem("app_orders", JSON.stringify(orders));
+      renderOwnerOrdersFeed();
     }
 
-    function clearOrdersHistory() {
-      if (confirm("সব হিস্ট্রি ক্লিয়ার করবেন?")) {
+    function clearAllOrdersHistory() {
+      if (confirm("সব অর্ডার হিস্ট্রি মুছে ফেলতে চান?")) {
         orders = [];
-        localStorage.removeItem("omni_orders");
-        renderOwnerOrders();
+        localStorage.removeItem("app_orders");
+        renderOwnerOrdersFeed();
       }
     }
 
-    function renderOwnerMenuList() {
-      const container = document.getElementById("ownerMenuList");
+    function renderOwnerMenuItemsFeed() {
+      const container = document.getElementById("ownerMenuItemsFeed");
       container.innerHTML = activeBiz.menu.map(item => `
         <div class="py-2.5 flex justify-between items-center">
           <div>
             <p class="font-bold text-slate-800">${item.name}</p>
             <p class="text-slate-400 text-[11px]">₹${item.price} · ${item.desc || ''}</p>
           </div>
-          <button onclick="deleteItem(${item.id})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1">মুছুন</button>
+          <button onclick="deleteMenuItem(${item.id})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1">মুছুন</button>
         </div>
       `).join('');
     }
 
-    function toggleAddItemForm() {
-      document.getElementById("addItemForm").classList.toggle("hidden");
+    function toggleAddItemDrawer() {
+      SoundEngine.playClick();
+      document.getElementById("addItemDrawer").classList.toggle("hidden");
     }
 
-    function saveNewItem() {
-      const name = document.getElementById("newItemName").value.trim();
-      const desc = document.getElementById("newItemDesc").value.trim();
-      const price = parseFloat(document.getElementById("newItemPrice").value);
+    function saveNewCatalogItem() {
+      const name = document.getElementById("newItemTitle").value.trim();
+      const desc = document.getElementById("newItemDetails").value.trim();
+      const price = parseFloat(document.getElementById("newItemCost").value);
 
       if (!name || isNaN(price)) {
-        alert("নাম ও সঠিক মূল্য দিন!");
+        alert("আইটেমের নাম ও সঠিক মূল্য দিন!");
         return;
       }
 
       activeBiz.menu.push({ id: Date.now(), name, desc, price });
-      saveActiveBiz();
-      toggleAddItemForm();
-      document.getElementById("newItemName").value = "";
-      document.getElementById("newItemDesc").value = "";
-      document.getElementById("newItemPrice").value = "";
-      renderOwnerMenuList();
+      saveActiveBusinessData();
+      toggleAddItemDrawer();
+      document.getElementById("newItemTitle").value = "";
+      document.getElementById("newItemDetails").value = "";
+      document.getElementById("newItemCost").value = "";
+      renderOwnerMenuItemsFeed();
+      SoundEngine.playClick();
     }
 
-    function deleteItem(id) {
+    function deleteMenuItem(id) {
       activeBiz.menu = activeBiz.menu.filter(m => m.id !== id);
-      saveActiveBiz();
-      renderOwnerMenuList();
+      saveActiveBusinessData();
+      renderOwnerMenuItemsFeed();
+      SoundEngine.playClick();
     }
 
-    function saveActiveBiz() {
-      localStorage.setItem("omni_data_" + currentBizType, JSON.stringify(activeBiz));
-      broadcastSync();
+    function saveActiveBusinessData() {
+      localStorage.setItem("app_biz_data_" + currentBizType, JSON.stringify(activeBiz));
+      broadcastConfigSync();
     }
 
-    function broadcastSync() {
+    function broadcastConfigSync() {
       client.publish(CHANNEL_SYNC, JSON.stringify({
         type: "UPDATE_MENU",
         bizType: currentBizType,
@@ -663,13 +861,13 @@
       }));
     }
 
-    function refreshQR() {
-      const seatVal = document.getElementById("qrSeatInput").value || "1";
-      const qrBox = document.getElementById("qrcode");
+    function renderLiveQR() {
+      const seatVal = document.getElementById("qrSeatNumberInput").value || "1";
+      const qrBox = document.getElementById("qrcodeBox");
       qrBox.innerHTML = "";
-      const url = window.location.origin + window.location.pathname + "?seat=" + seatVal;
+      const currentUrl = window.location.origin + window.location.pathname + "?seat=" + seatVal;
       new QRCode(qrBox, {
-        text: url,
+        text: currentUrl,
         width: 100,
         height: 100,
         colorDark: "#0f172a",
